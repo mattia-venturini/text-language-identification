@@ -32,7 +32,7 @@ def readLines(filename):
     return [unicodeToAscii(line) for line in lines]
 
 # legge da un dataset dove ogni categoria si trova in un file (1 entry per riga)
-def dataFromFiles(target='TrainData/*.utf8'):
+def dataFromFiles(target='TrainData/*.utf8', getData=True):
 	
 	global category_lines
 	global all_categories
@@ -41,12 +41,16 @@ def dataFromFiles(target='TrainData/*.utf8'):
 	# Build the category_lines dictionary, a list of lines per category
 	category_lines = {}
 	all_categories = []
-	#for filename in findFiles('data/names/*.txt'):
+	
 	for filename in findFiles(target):
+		# ricava la categoria
 		category = filename.split('/')[-1].split('.')[0]
 		all_categories.append(category)
-		lines = readLines(filename)
-		category_lines[category] = lines
+		
+		# ricava i relativi dati (se richiesto)
+		if getData:
+			lines = readLines(filename)
+			category_lines[category] = lines
 
 	n_categories = len(all_categories)
 
