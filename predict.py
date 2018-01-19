@@ -39,7 +39,7 @@ if __name__ == '__main__':
 	
 	# parametri da linea di comando
 	parser = argparse.ArgumentParser(description='Language modelling at character level with a RNN (PyTorch)')
-	parser.add_argument('target', help='String to predict')
+	parser.add_argument('text', help='String to predict')
 	parser.add_argument('--dataset', metavar='dataset', help='Dataset da usare: names | dli32')
 	parser.add_argument('--cuda', action='store_true', default=False, help='enables CUDA training')
 	args = parser.parse_args()
@@ -50,7 +50,7 @@ if __name__ == '__main__':
 		data.dataFromFiles(getData=False)
 	
 	rnn = torch.load('char-rnn-classification.pt')	# modello da file
-	predictions = predict(rnn, sys.argv[1], n_predictions=2, cuda=args.cuda)	# valuta da modello
+	predictions = predict(rnn, args.text, n_predictions=2, cuda=args.cuda)	# valuta da modello
 	
 	for p in predictions:	# stampa
 		print('(%.2f) %s' % (p[0], p[1]))

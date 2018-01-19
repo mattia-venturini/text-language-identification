@@ -15,17 +15,13 @@ import model
 from predict import predict
 
 n_hidden = 246
-print_every = 10
-plot_every = 1000
-#learning_rate = 0.001
+print_every = 1
 
 cuda = torch.cuda.is_available()	# verifica se cuda è disponibile
 
 def categoryFromOutput(output):
-	print output
 	top_n, top_i = output.data.topk(1) # Tensor out of Variable with .data
 	category_i = top_i[0][0]
-	print category_i
 	return data.all_categories[category_i], category_i
 
 def randomChoice(l):
@@ -39,20 +35,6 @@ def randomTrainingPair():
     line_tensor = Variable(lineToTensor(line))
     return category, line, category_tensor, line_tensor
 
-# training su un input
-def train(category_tensor, line_tensor):
-    hidden = rnn.initHidden()
-    optimizer.zero_grad()
-
-    for i in range(line_tensor.size()[0]):
-        output, hidden = rnn(line_tensor[i], hidden)
-
-    loss = criterion(output, category_tensor)
-    loss.backward()
-
-    optimizer.step()
-
-    return output, loss.data[0]
 
 # Keep track of losses for plotting
 current_loss = 0
@@ -75,6 +57,7 @@ if __name__ == "__main__":
 	parser.add_argument('--dataset', metavar='dataset', help='Dataset da usare: names | dli32')
 	parser.add_argument('--epochs', type=int, default=1000, metavar='epochs', help='number of epochs to train (default: 1000)')
 	parser.add_argument('--lr', type=float, default=0.001, metavar='lr', help='learning rate (default: 0.005)')
+	parser.add_argument('--batch-size', type=int, default=64, metavar='batch-size', help='size of mini-batch')
 	parser.add_argument('--cuda', action='store_true', default=False, help='enables CUDA training')
 	args = parser.parse_args()
 	
@@ -85,44 +68,51 @@ if __name__ == "__main__":
 	
 	# instanzia rete neurale
 	rnn = model.RNN(data.n_letters, n_hidden, data.n_categories, cuda=args.cuda)
-	optimizer = torch.optim.SGD(rnn.parameters(), lr=args.lr, momentum=0.9)
+	#optimizer = torch.optim.SGD(rnn.parameters(), lr=args.lr, momentum=0.9, weight_decay=0.01)
+	optimizer = torch.optim.Adam(rnn.parameters(), lr=args.lr)
 	criterion = nn.NLLLoss()
 	if args.cuda:
 		rnn.cuda()
 	
 	start = time.time()
 	
-	# training (online) ------------------------------------
+	# training ---------------------------------------
 	for epoch in range(1, args.epochs + 1):
-		category, line, category_tensor, line_tensor = randomTrainingPair()
 		
-		# usa cuda se possibile
-		if args.cuda:
-			category_tensor = category_tensor.cuda()
-			line_tensor = line_tensor.cuda()
+		optimizer.zero_grad()	# azzera i gradienti
+		current_loss = 0
+		guessed = 0
 		
-		output = rnn.recurrentForward(line_tensor)
-		
-		loss = criterion(output, category_tensor) 
-		loss.backward()		# calcola gradienti
-		
+		# mini-batch di elementi
+		for i in range(args.batch_size):
+			category, line, category_tensor, line_tensor = randomTrainingPair()
+	
+			# usa cuda se possibile
+			if args.cuda:
+				category_tensor = category_tensor.cuda()
+				line_tensor = line_tensor.cuda()
+	
+			output = rnn.recurrentForward(line_tensor)	# predizione tramite modello
+			
+			outCategory, _ = categoryFromOutput(output)
+			#print outCategory, category
+			if outCategory == category:
+				guessed = guessed + 1
+	
+			loss = criterion(output, category_tensor)
+			loss.backward()		# calcola gradienti (si sommano ai precedenti)
+			current_loss = current_loss + loss
+		# fine batch
+					
 		# clipping del gradiente, per evitare che "esploda"
 		torch.nn.utils.clip_grad_norm(rnn.parameters(), 0.25)
 		
 		optimizer.step()	# modifica pesi secondo i gradienti
-		current_loss += loss
-
-		# Print epoch number, loss, name and guess
+		
+		# stampa cose
 		if epoch % print_every == 0:
-			guess, guess_i = categoryFromOutput(output)
-			correct = 'Yes' if guess == category else 'No (%s)' % category
-			printed_input = data.unicodeToAscii(line)[0:32]+"..."
-			print('%d %d%% (%s) %.4f %s / %s %s' % (epoch, float(epoch) / args.epochs * 100, timeSince(start), loss, printed_input, guess, correct))
-
-		# Add current loss avg to list of losses
-		if epoch % plot_every == 0:
-		    all_losses.append(current_loss / plot_every)
-		    current_loss = 0
+			print('epoch: %d %d%% (%s), loss: %.4f, guessed: %d / %d' % (epoch, float(epoch) / args.epochs * 100, timeSince(start), current_loss, guessed, args.batch_size))
+	
 	# end training -------------------------------------
 	
 	# salva modello su file
@@ -130,10 +120,6 @@ if __name__ == "__main__":
 	print "Model saved in file: char-rnn-classification.pt"
 	
 	# testing
-	"""for category in all_categories:
-		for data in category_lines[category]:
-			predict(rnn, data)"""
-	
 	print predict(rnn, "Typical approaches are based on statistics of the most frequent n-grams in each language", cuda=args.cuda)
 	print predict(rnn, "Please see the solution details below and run the code yourself.", cuda=args.cuda)
 	print predict(rnn, "i file contengono una o più frasi separate da una riga vuota;", cuda=args.cuda)
