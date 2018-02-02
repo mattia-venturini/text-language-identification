@@ -54,25 +54,34 @@ if __name__ == "__main__":
 		
 	# parametri da terminale
 	parser = argparse.ArgumentParser(description='Language modelling at character level with a RNN (PyTorch)')
-	parser.add_argument('--dataset', metavar='dataset', help='Dataset da usare: names | dli32')
+	parser.add_argument('--model', default='RNN', help='modello da usare: RNN | LSTM', choices=['RNN','LSTM'])
+	parser.add_argument('--dataset', metavar='dataset', help='Dataset da usare: names | dli32', choices=['names', 'dli32'])
 	parser.add_argument('--epochs', type=int, default=1000, metavar='epochs', help='number of epochs to train (default: 1000)')
 	parser.add_argument('--lr', type=float, default=0.001, metavar='lr', help='learning rate (default: 0.005)')
 	parser.add_argument('--batch-size', type=int, default=64, metavar='batch-size', help='size of mini-batch')
 	parser.add_argument('--cuda', action='store_true', default=False, help='enables CUDA training')
 	args = parser.parse_args()
 	
+	# carica dataset
 	if args.dataset == 'dli32':
 		data.dataFromDLI32()
 	else:
 		data.dataFromFiles()
 	
 	# instanzia rete neurale
-	rnn = model.RNN(data.n_letters, n_hidden, data.n_categories, cuda=args.cuda)
+	if args.model == 'RNN':
+		rnn = model.RNN(data.n_letters, n_hidden, data.n_categories, cuda=args.cuda)
+	elif args.model == 'LSTM':
+		rnn = model.LSTM(input_size=data.n_letters, hidden_size=n_hidden, output_size=data.n_categories)
+	
+	assert rnn
+	
 	#optimizer = torch.optim.SGD(rnn.parameters(), lr=args.lr, momentum=0.9, weight_decay=0.01)
 	optimizer = torch.optim.Adam(rnn.parameters(), lr=args.lr)
 	criterion = nn.NLLLoss()
 	if args.cuda:
 		rnn.cuda()
+		criterion.cuda()
 	
 	start = time.time()
 	
@@ -84,24 +93,33 @@ if __name__ == "__main__":
 		guessed = 0
 		
 		# mini-batch di elementi
-		for i in range(args.batch_size):
+		for i in range(1, args.batch_size+1):
 			category, line, category_tensor, line_tensor = randomTrainingPair()
 	
 			# usa cuda se possibile
 			if args.cuda:
 				category_tensor = category_tensor.cuda()
 				line_tensor = line_tensor.cuda()
-	
-			output = rnn.recurrentForward(line_tensor)	# predizione tramite modello
+			
+			#line_tensor = line_tensor.view((1, len(line), -1))
+			#print line_tensor
+			
+			output = rnn.forward(line_tensor)	# predizione tramite modello
 			
 			outCategory, _ = categoryFromOutput(output)
 			#print outCategory, category
 			if outCategory == category:
 				guessed = guessed + 1
-	
+			
+			#print output,
+			#print category_tensor
+			
 			loss = criterion(output, category_tensor)
-			loss.backward()		# calcola gradienti (si sommano ai precedenti)
+			loss.backward(retain_graph=True)		# calcola gradienti (si sommano ai precedenti)
 			current_loss = current_loss + loss
+			
+			if i % print_every == 0:
+				print('epoch: %d %d%%, step: %d done. (%s)' % (epoch, float(epoch) / args.epochs * 100, i, timeSince(start)))
 		# fine batch
 					
 		# clipping del gradiente, per evitare che "esploda"
@@ -110,8 +128,7 @@ if __name__ == "__main__":
 		optimizer.step()	# modifica pesi secondo i gradienti
 		
 		# stampa cose
-		if epoch % print_every == 0:
-			print('epoch: %d %d%% (%s), loss: %.4f, guessed: %d / %d' % (epoch, float(epoch) / args.epochs * 100, timeSince(start), current_loss, guessed, args.batch_size))
+		print('epoch: %d %d%% (%s), loss: %.4f, guessed: %d / %d' % (epoch, float(epoch) / args.epochs * 100, timeSince(start), current_loss, guessed, args.batch_size))
 	
 	# end training -------------------------------------
 	

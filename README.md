@@ -8,22 +8,10 @@ Bla bla bla.
 * Version
 * [Learn Markdown](https://bitbucket.org/tutorials/markdowndemo)
 
-### How do I get set up? ###
+### TODO ###
 
-* Summary of set up
-* Configuration
-* Dependencies
-* Database configuration
-* How to run tests
-* Deployment instructions
+* Iterazioni in modo che vengano usati tutti i dati del DS ad ogni epoca
+* allenamento a batch più efficente
+* Testare LSTM
+* Altri modelli?
 
-### Contribution guidelines ###
-
-* Writing tests
-* Code review
-* Other guidelines
-
-### Who do I talk to? ###
-
-* Repo owner or admin
-* Other community or team contact
