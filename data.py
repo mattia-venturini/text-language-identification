@@ -1,9 +1,11 @@
 # -*- coding: utf-8 -*-
 
 import torch
+from torch.autograd import Variable	
 import glob
 import unicodedata
 import string
+import numpy
 from io import open
 from unidecode import unidecode_expect_nonascii		# per sostituire caratteri non-ASCII
 
@@ -11,6 +13,11 @@ from unidecode import unidecode_expect_nonascii		# per sostituire caratteri non-
 category_lines = {}
 all_categories = []
 n_categories = 0
+n_instances = 0
+
+data_X = []
+data_Y = []
+index = 0
 
 all_letters = string.ascii_letters + " .,;'-"
 #all_letters = string.ascii_lowercase + " .,;'-"
@@ -34,15 +41,14 @@ def readLines(filename):
 # legge da un dataset dove ogni categoria si trova in un file (1 entry per riga)
 def dataFromFiles(target='TrainData/*.utf8', getData=True):
 	
-	global category_lines
-	global all_categories
-	global n_categories
+	global category_lines, all_categories, n_categories, n_instances
+	global data_X, data_Y
 	
 	# Build the category_lines dictionary, a list of lines per category
 	category_lines = {}
 	all_categories = []
 	
-	for filename in findFiles(target):
+	for index, filename in enumerate(findFiles(target)):
 		# ricava la categoria
 		category = filename.split('/')[-1].split('.')[0]
 		all_categories.append(category)
@@ -51,7 +57,11 @@ def dataFromFiles(target='TrainData/*.utf8', getData=True):
 		if getData:
 			lines = readLines(filename)
 			category_lines[category] = lines
-
+			
+			data_X += lines
+			data_Y += [index for i in lines]
+			
+	n_instances = len(data_X)		
 	n_categories = len(all_categories)
 
 
@@ -87,14 +97,53 @@ def letterToIndex(letter):
 
 # Turn a line into a <line_length x 1 x n_letters>,
 # or an array of one-hot letter vectors
-def lineToTensor(line):
-	line = line.decode('utf-8')		# da stringa a utf-8
-	line = unidecode_expect_nonascii(line)	# da utf-8 sostituisce caratteri "strani" in stringa ASCII
-	line = unicode(line)		# ad unicode
+def lineToTensor(lines):
 	
-	line = unicodeToAscii(line)
-	tensor = torch.zeros(len(line), 1, n_letters)
-	for li, letter in enumerate(line):
-		tensor[li][0][letterToIndex(letter)] = 1
+	lens = [len(line) for line in lines]
+	tensor = torch.zeros(max(lens), len(lines), n_letters)
+	# The 1st axis is the sequence itself, the 2nd indexes instances in the mini-batch, the 3rd indexes elements of the character.
+	
+	for i, line in enumerate(lines):
+		line = line.decode('utf-8')		# da stringa a utf-8
+		line = unidecode_expect_nonascii(line)	# da utf-8 sostituisce caratteri "strani" in stringa ASCII
+		line = unicode(line)		# ad unicode
+	
+		line = unicodeToAscii(line)
+		
+		for j, letter in enumerate(line):
+			tensor[j][i][letterToIndex(letter)] = 1
 	return tensor
+
+
+# rimescola i dati
+def shuffle():
+	global index
+	
+	seed = 666
+	numpy.random.seed(seed)
+	numpy.random.shuffle(data_X)
+	numpy.random.shuffle(data_Y)
+	index = 0
+
+
+# restituisce un'insieme di dati con le rispettive classi
+def getBatch(batch_size):
+	
+	global index, data_X, data_Y
+	
+	index2 = min(index+batch_size, n_instances)
+	
+	if index >= index2:		# finite le iterazioni sul DS
+		# ricomincia
+		shuffle()
+		index2 = min(index+batch_size, n_instances)
+	
+	# batch
+	batch_X = data_X[index : index2]
+	batch_Y = data_Y[index : index2]
+	
+	index = index2	# aggiorna indice per il batch successivo
+	
+	return batch_X, batch_Y, Variable(lineToTensor(batch_X)), Variable(torch.LongTensor(batch_Y))
+	
 

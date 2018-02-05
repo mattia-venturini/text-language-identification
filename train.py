@@ -7,22 +7,30 @@ import random
 import time
 import math
 import argparse		# per i parametri da terminale
+import re		# regular expression
 
 # moduli del progetto
 import data
-from data import lineToTensor
+from data import lineToTensor, findFiles
 import model
 from predict import predict
 
-n_hidden = 246
+#n_hidden = 246
+n_hidden = 64
 print_every = 1
 
 cuda = torch.cuda.is_available()	# verifica se cuda è disponibile
 
 def categoryFromOutput(output):
-	top_n, top_i = output.data.topk(1) # Tensor out of Variable with .data
-	category_i = top_i[0][0]
-	return data.all_categories[category_i], category_i
+	try:
+		top_n, top_i = output.data.topk(1) # Tensor out of Variable with .data
+		category_i = top_i[0][0]
+		return data.all_categories[category_i], category_i
+	except (ValueError,IndexError) as error:
+		print "output:", output
+		print "category_i:", category_i
+		print "all_categories:", len(data.all_categories)
+		raise error
 
 def randomChoice(l):
     return l[random.randint(0, len(l) - 1)]
@@ -32,8 +40,8 @@ def randomTrainingPair():
     category = randomChoice(data.all_categories)
     line = randomChoice(data.category_lines[category])
     category_tensor = Variable(torch.LongTensor([data.all_categories.index(category)]))
-    line_tensor = Variable(lineToTensor(line))
-    return category, line, category_tensor, line_tensor
+    line_tensor = Variable(lineToTensor([line]))
+    return line, category, line_tensor, category_tensor
 
 
 # Keep track of losses for plotting
@@ -56,23 +64,44 @@ if __name__ == "__main__":
 	parser = argparse.ArgumentParser(description='Language modelling at character level with a RNN (PyTorch)')
 	parser.add_argument('--model', default='RNN', help='modello da usare: RNN | LSTM', choices=['RNN','LSTM'])
 	parser.add_argument('--dataset', metavar='dataset', help='Dataset da usare: names | dli32', choices=['names', 'dli32'])
-	parser.add_argument('--epochs', type=int, default=1000, metavar='epochs', help='number of epochs to train (default: 1000)')
-	parser.add_argument('--lr', type=float, default=0.001, metavar='lr', help='learning rate (default: 0.005)')
+	parser.add_argument('--epochs', type=int, default=10, metavar='epochs', help='number of epochs to train (default: 1000)')
+	parser.add_argument('--lr', type=float, default=0.0001, metavar='lr', help='learning rate (default: 0.005)')
 	parser.add_argument('--batch-size', type=int, default=64, metavar='batch-size', help='size of mini-batch')
 	parser.add_argument('--cuda', action='store_true', default=False, help='enables CUDA training')
+	parser.add_argument('--restart', action='store_true', default=False, help='restart training from an existing model')
 	args = parser.parse_args()
 	
 	# carica dataset
 	if args.dataset == 'dli32':
 		data.dataFromDLI32()
 	else:
-		data.dataFromFiles()
+		data.dataFromFiles('data/names/*.txt')
+	
+	start_epoch = 1
+	
+	# ripristina modello da file, se richiesto
+	if args.restart:
+		files = findFiles("results/"+args.model+"_epoch_*.pt")
+		if len(files) > 0:
+			files.sort()
+			filename = files[-1]
+			rnn = torch.load(filename)
+			
+			# recupera l'epoca a cui si era rimasti
+			num = re.split('_|\.', filename)[-2]
+			start_epoch = int(num)+1
+			
+			print "Modello recuperato dal file "+filename
+		else:
+			print "Nessun file trovato per il modello "+args.model+". Ne verrà creato uno nuovo."
+			args.restart = False
 	
 	# instanzia rete neurale
-	if args.model == 'RNN':
-		rnn = model.RNN(data.n_letters, n_hidden, data.n_categories, cuda=args.cuda)
-	elif args.model == 'LSTM':
-		rnn = model.LSTM(input_size=data.n_letters, hidden_size=n_hidden, output_size=data.n_categories)
+	if not args.restart:
+		if args.model == 'RNN':
+			rnn = model.RNN(data.n_letters, n_hidden, data.n_categories, cuda=args.cuda)
+		elif args.model == 'LSTM':
+			rnn = model.LSTM(input_size=data.n_letters, hidden_size=n_hidden, output_size=data.n_categories, cuda=args.cuda)
 	
 	assert rnn
 	
@@ -84,61 +113,78 @@ if __name__ == "__main__":
 		criterion.cuda()
 	
 	start = time.time()
+	num_batches = data.n_instances / args.batch_size
+	print "num_batches: "+str(num_batches)
+	
+	retain_graph = False
+	if args.model == 'LSTM':	# non so bene il perché di tutto ciò...
+		retain_graph = True
 	
 	# training ---------------------------------------
-	for epoch in range(1, args.epochs + 1):
+	for epoch in range(start_epoch, args.epochs + 1):
 		
 		optimizer.zero_grad()	# azzera i gradienti
-		current_loss = 0
-		guessed = 0
+		
+		data.shuffle()
 		
 		# mini-batch di elementi
-		for i in range(1, args.batch_size+1):
-			category, line, category_tensor, line_tensor = randomTrainingPair()
-	
+		for step in range(1, num_batches+1):
+		
+			current_loss = 0
+			guessed = 0
+			
+			#category, line, category_tensor, line_tensor = randomTrainingPair()
+			line, category, line_tensor, category_tensor = data.getBatch(args.batch_size)
+
 			# usa cuda se possibile
 			if args.cuda:
 				category_tensor = category_tensor.cuda()
 				line_tensor = line_tensor.cuda()
-			
+		
 			#line_tensor = line_tensor.view((1, len(line), -1))
 			#print line_tensor
-			
+		
 			output = rnn.forward(line_tensor)	# predizione tramite modello
-			
-			outCategory, _ = categoryFromOutput(output)
-			#print outCategory, category
-			if outCategory == category:
-				guessed = guessed + 1
-			
-			#print output,
+			#print output
+		
+			for i in range(len(category)):
+				outCategory, _ = categoryFromOutput(output[i])
+				#print outCategory, category
+				if outCategory == data.all_categories[category[i]]:
+					guessed = guessed + 1
+		
+			#output = output.view((args.batch_size, data.n_categories))
+			output = output.squeeze(1)
+			#print output
 			#print category_tensor
 			
 			loss = criterion(output, category_tensor)
-			loss.backward(retain_graph=True)		# calcola gradienti (si sommano ai precedenti)
-			current_loss = current_loss + loss
 			
-			if i % print_every == 0:
-				print('epoch: %d %d%%, step: %d done. (%s)' % (epoch, float(epoch) / args.epochs * 100, i, timeSince(start)))
+			loss.backward(retain_graph=retain_graph)		# calcola gradienti (si sommano ai precedenti)
+			
+			# clipping del gradiente, per evitare che "esploda"
+			torch.nn.utils.clip_grad_norm(rnn.parameters(), 10)
+			
+			optimizer.step()	# modifica pesi secondo i gradienti
+			
+			if step % print_every == 0:
+				print('epoch: %d, step: %d/%d, loss: %f, guessed: %d / %d. (%s)' % (epoch, step, num_batches+1, loss, guessed, args.batch_size, timeSince(start)))
+			
 		# fine batch
-					
-		# clipping del gradiente, per evitare che "esploda"
-		torch.nn.utils.clip_grad_norm(rnn.parameters(), 0.25)
 		
-		optimizer.step()	# modifica pesi secondo i gradienti
+		# stampa di fine epoca
+		print('epoch: %d %d%% done. (%s)' % (epoch, float(epoch) / args.epochs * 100, timeSince(start)))
 		
-		# stampa cose
-		print('epoch: %d %d%% (%s), loss: %.4f, guessed: %d / %d' % (epoch, float(epoch) / args.epochs * 100, timeSince(start), current_loss, guessed, args.batch_size))
+		# salva modello su file
+		filename = '%s_epoch_%d.pt' % (args.model, epoch)
+		torch.save(rnn, "results/"+filename)
+		print "Model saved in file: results/%s" % (filename)
 	
 	# end training -------------------------------------
 	
-	# salva modello su file
-	torch.save(rnn, 'char-rnn-classification.pt')
-	print "Model saved in file: char-rnn-classification.pt"
-	
 	# testing
-	print predict(rnn, "Typical approaches are based on statistics of the most frequent n-grams in each language", cuda=args.cuda)
-	print predict(rnn, "Please see the solution details below and run the code yourself.", cuda=args.cuda)
-	print predict(rnn, "i file contengono una o più frasi separate da una riga vuota;", cuda=args.cuda)
-	print predict(rnn, "Hola, amigo, como estas?", cuda=args.cuda);
+	print predict(rnn, "Typical approaches are based on statistics of the most frequent n-grams in each language", 3, cuda=args.cuda)
+	print predict(rnn, "Please see the solution details below and run the code yourself.", 3, cuda=args.cuda)
+	print predict(rnn, "i file contengono una o più frasi separate da una riga vuota;", 3, cuda=args.cuda)
+	print predict(rnn, "Hola, amigo, como estas?", 3, cuda=args.cuda);
 

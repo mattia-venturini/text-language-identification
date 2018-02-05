@@ -29,17 +29,18 @@ class RNN(nn.Module):
         
     # fa un passaggio completo di una sequenza di input
     def forward(self, line_tensor):
-		hidden = self.initHidden()
+		batch_size = line_tensor.size()[1]
+		hidden = self.initHidden(batch_size)
 		
 		for i in range(line_tensor.size()[0]):
 			output, hidden = self.step(line_tensor[i], hidden)
 		
-		return output
+		return output.view(batch_size, 1, -1)
 	
 	
 	# inizializza la memoria, per cominciare una sequenza
-    def initHidden(self):
-    	hidden = Variable(torch.zeros(1, self.hidden_size))
+    def initHidden(self, size=1):
+    	hidden = Variable(torch.zeros(size, self.hidden_size))
     	if self.useCuda:
     		hidden = hidden.cuda()
     	return hidden
@@ -68,19 +69,28 @@ class LSTM(nn.Module):
 		# Refer to the Pytorch documentation to see exactly why they have this dimensionality.
 		# The axes semantics are (num_layers, minibatch_size, hidden_dim)
 		hidden = torch.zeros(1, 1, self.hidden_size)
+		hidden2 = torch.zeros(1, 1, self.hidden_size)
 		if self.useCuda:
 			hidden = hidden.cuda()
-		return (Variable(hidden), Variable(hidden))	# boh, ne vuole 2
+			hidden2 = hidden2.cuda()
+		return (Variable(hidden), Variable(hidden2))	# boh, ne vuole 2
+
 
 	def forward(self, line_tensor):
-		
 		#embeds = self.word_embeddings(sentence)
-		lstm_out, self.hidden = self.lstm(line_tensor.view(len(line_tensor), 1, -1), self.hidden)
-		tag_space = self.hidden2tag(lstm_out.view(len(line_tensor), -1))
-		tag_scores = F.log_softmax(tag_space, dim=1)
+		#lstm_out, self.hidden = self.lstm(line_tensor, self.hidden)
+		line_tensor = line_tensor.unsqueeze(2)
 		
-		out = Variable(torch.zeros((1, tag_scores.size(1))))	# output dell'ultimo passaggio
+		for i in range(line_tensor.size()[0]):
+			#print line_tensor[i]
+			lstm_out, self.hidden = self.lstm(line_tensor[i], self.hidden)
+		#tag_space = self.hidden2tag(lstm_out.view(len(line_tensor), -1))
+		tag_space = self.hidden2tag(lstm_out)
+		#tag_scores = F.log_softmax(tag_space, dim=1)
+		return tag_space
+		
+		"""out = Variable(torch.zeros((1, tag_scores.size(1))))	# output dell'ultimo passaggio
 		out[0] = tag_scores[-1]
-		return out
+		return out"""
 
 
