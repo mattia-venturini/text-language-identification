@@ -10,8 +10,8 @@ Bla bla bla.
 
 ### TODO ###
 
-* Iterazioni in modo che vengano usati tutti i dati del DS ad ogni epoca
-* allenamento a batch più efficente
+* un modo per rendere dataset omogenei sulle classi?
 * Testare LSTM
+* training LSTM più efficente?
 * Altri modelli?
 
