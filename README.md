@@ -1,6 +1,6 @@
 # Text Language Identification #
 
-Bla bla bla.
+Language modelling at character level with a RNN (PyTorch).
 
 ### What is this repository for? ###
 
@@ -11,7 +11,5 @@ Bla bla bla.
 ### TODO ###
 
 * un modo per rendere dataset omogenei sulle classi?
-* Testare LSTM
-* training LSTM più efficente?
-* Altri modelli?
+* test set / validation set
 
