@@ -10,17 +10,20 @@ from io import open
 from unidecode import unidecode_expect_nonascii		# per sostituire caratteri non-ASCII
 
 # variabili globali
-category_lines = {}
+#category_lines = {}
 all_categories = []
 n_categories = 0
 n_instances = 0
 
 data_X = []
 data_Y = []
+testX = []
+testY = []
+validationX = []
+validationY = []
 index = 0
 
-all_letters = "\0" + string.ascii_letters + " .,;'-"
-#all_letters = string.ascii_lowercase + " .,;'-"
+all_letters = string.ascii_letters + " .,;'-0123456789"
 n_letters = len(all_letters)
 
 def findFiles(path): return glob.glob(path)
@@ -39,16 +42,17 @@ def readLines(filename):
     return [unicodeToAscii(line) for line in lines]
 
 # legge da un dataset dove ogni categoria si trova in un file (1 entry per riga)
-def dataFromFiles(target='TrainData/*.utf8', getData=True):
+def dataFromFiles(target='TrainData', getData=True, getTestSet=True, getValidationSet=True):
 
 	global category_lines, all_categories, n_categories, n_instances
-	global data_X, data_Y
+	global data_X, data_Y, testX, testY, validationX, validationY
 
 	# Build the category_lines dictionary, a list of lines per category
 	category_lines = {}
 	all_categories = []
 
-	for index, filename in enumerate(findFiles(target)):
+	# ricerca nei file di train set
+	for index, filename in enumerate(findFiles(target+"/*.train.utf8")):
 		# ricava la categoria
 		category = filename.split('/')[-1].split('.')[0]
 		all_categories.append(category)
@@ -56,10 +60,21 @@ def dataFromFiles(target='TrainData/*.utf8', getData=True):
 		# ricava i relativi dati (se richiesto)
 		if getData:
 			lines = readLines(filename)
-			category_lines[category] = lines
-
+			#category_lines[category] = lines
 			data_X += lines
 			data_Y += [index for i in lines]
+
+		if getTestSet:
+			# recupera test set della categoria
+			lines = readLines(target+"/"+category+".test.utf8")
+			testX += lines
+			testY += [index for i in lines]
+
+		if getValidationSet:
+			# recupera validation set della categoria
+			lines = readLines(target+"/"+category+".validation.utf8")
+			validationX += lines
+			validationY += [index for i in lines]
 
 	n_instances = len(data_X)
 	n_categories = len(all_categories)
@@ -147,3 +162,4 @@ def getBatch(batch_size):
 	index = index2	# aggiorna indice per il batch successivo
 
 	return batch_X, batch_Y, Variable(lineToTensor(batch_X)), Variable(torch.LongTensor(batch_Y))
+	

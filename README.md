@@ -10,6 +10,5 @@ Language modelling at character level with a RNN (PyTorch).
 
 ### TODO ###
 
-* un modo per rendere dataset omogenei sulle classi?
-* test set / validation set
-
+* salvare dati testing
+* esperimenti

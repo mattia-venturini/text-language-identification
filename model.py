@@ -130,5 +130,5 @@ class GRU(nn.Module):
 		out = out.squeeze(0)
 
 		tag_space = self.hidden2tag(out)
-		tag_scores = F.log_softmax(tag_space, dim=1)
+		tag_scores = F.log_softmax(tag_space, dim=-1)
 		return tag_scores

@@ -16,9 +16,7 @@ import model
 from predict import predict
 
 #n_hidden = 128
-print_every = 10
-
-cuda = torch.cuda.is_available()	# verifica se cuda è disponibile
+print_every = 100
 
 def categoryFromOutput(output):
 	try:
@@ -30,6 +28,15 @@ def categoryFromOutput(output):
 		print "category_i:", category_i
 		print "all_categories:", len(data.all_categories)
 		raise error
+
+def countGuessed(netOutput, categories):
+	guessed = 0
+	for i in range(len(category)):
+		outCategory, _ = categoryFromOutput(netOutput[i])
+		if outCategory == data.all_categories[categories[i]]:
+			guessed = guessed + 1
+	return guessed
+
 
 def randomChoice(l):
     return l[random.randint(0, len(l) - 1)]
@@ -83,9 +90,9 @@ if __name__ == "__main__":
 	if args.dataset == 'dli32':
 		data.dataFromDLI32()
 	elif args.dataset == 'TrainData':
-		data.dataFromFiles('TrainData/*.utf8')
+		data.dataFromFiles('TrainData')
 	elif args.dataset == 'names':
-		data.dataFromFiles('data/names/*.txt')
+		data.dataFromFiles('data/names/')
 
 	start_epoch = 1
 
@@ -120,7 +127,7 @@ if __name__ == "__main__":
 	#optimizer = torch.optim.SGD(rnn.parameters(), lr=args.lr)
 	optimizer = torch.optim.Adam(rnn.parameters(), lr=args.lr)
 	criterion = nn.NLLLoss()
-	#criterion = nn.CrossEntropy()
+
 	if args.cuda:
 		rnn.cuda()
 		criterion.cuda()
@@ -139,7 +146,7 @@ if __name__ == "__main__":
 		data.shuffle()
 
 		# mini-batch di elementi
-		for step in range(1, (num_batches+1) / 5):
+		for step in range(1, (num_batches+1)):
 
 			optimizer.zero_grad()	# azzera i gradienti
 			guessed = 0
@@ -158,10 +165,7 @@ if __name__ == "__main__":
 			output = rnn.forward(line_tensor)	# predizione tramite modello
 			#print output
 
-			for i in range(len(category)):
-				outCategory, _ = categoryFromOutput(output[i])
-				if outCategory == data.all_categories[category[i]]:
-					guessed = guessed + 1
+			guessed = countGuessed(output, category)
 
 			#output = output.view((args.batch_size, data.n_categories))
 			output = output.squeeze(1)
@@ -190,10 +194,23 @@ if __name__ == "__main__":
 		torch.save(rnn, "results/"+filename)
 		print "Model saved in file: results/%s" % (filename)
 
+		# testing di fine epoca ---------------------
+		n_test = 50
+		guessed = 0
+		loss = 0
+		for i in range(n_test):
+			index = random.randint(0, len(data.testX))
+			lineTensor = Variable(lineToTensor([data.testX[index]]))
+			category_tensor = Variable(torch.LongTensor([data.testY[index]]))
+			output = rnn.forward(lineTensor)
+			guessed += countGuessed(output, [data.testY[index]])
+			loss += criterion(output, category_tensor)
+		print('testing ---> loss: %f, guessed: %d / %d' % (loss, guessed, n_test))
+
 	# end training -------------------------------------
 
 	# testing
-	print predict(rnn, "Typical approaches are based on statistics of the most frequent n-grams in each language", 2, cuda=args.cuda)
+	"""print predict(rnn, "Typical approaches are based on statistics of the most frequent n-grams in each language", 2, cuda=args.cuda)
 	print predict(rnn, "Please see the solution details below and run the code yourself.", 2, cuda=args.cuda)
 	print predict(rnn, "i file contengono una o più frasi separate da una riga vuota;", 2, cuda=args.cuda)
-	print predict(rnn, "Hola, amigo, como estas?", 2, cuda=args.cuda);
+	print predict(rnn, "Hola, amigo, como estas?", 2, cuda=args.cuda);"""
