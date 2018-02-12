@@ -22,7 +22,7 @@ if __name__ == "__main__":
     f_validation = open(base_name+".validation.utf8", 'w')
 
     # estrae dati
-    data.dataFromFiles(args.data_file, getData=True)
+    data.dataFromFiles(args.data_file, getData=True, getTestSet=False, getValidationSet=False)
     data.shuffle()
 
     n_test = data.n_instances / 10

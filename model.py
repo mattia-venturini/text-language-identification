@@ -7,18 +7,19 @@ from torch.autograd import Variable
 class RNN(nn.Module):
 
     def __init__(self, input_size, hidden_size, output_size, cuda=False):
-		super(RNN, self).__init__()
+        super(RNN, self).__init__()
 
-		self.hidden_size = hidden_size
+        self.hidden_size = hidden_size
 
-		"""self.layer1 = nn.Sequential(
-			nn.Linear(input_size + hidden_size, hidden_size),
-			nn.LeakyReLU(0.2))"""
-		self.i2h = nn.Linear(input_size + hidden_size, hidden_size)
-		self.i2o = nn.Linear(input_size + hidden_size, output_size)
-		self.softmax = nn.LogSoftmax(dim=-1)
+        """self.layer1 = nn.Sequential(
+        	nn.Linear(input_size + hidden_size, hidden_size),
+        	nn.LeakyReLU(0.2))"""
+        self.i2h = nn.Linear(input_size + hidden_size, hidden_size)
+        self.i2o = nn.Linear(input_size + hidden_size, output_size)
+        self.softmax = nn.LogSoftmax(dim=-1)
+        self.tanh = nn.Tanh()
 
-		self.useCuda = cuda
+        self.useCuda = cuda
 
 
 	# fa un passaggio ricorsivo
@@ -26,6 +27,7 @@ class RNN(nn.Module):
         combined = torch.cat((input, hidden), 1)
         #combined = self.layer1(combined)	# NEW
         hidden = self.i2h(combined)
+        hidden = self.tanh(hidden)
         output = self.i2o(combined)
         output = self.softmax(output)
         return output, hidden

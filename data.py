@@ -6,6 +6,7 @@ import glob
 import unicodedata
 import string
 import numpy
+import os.path
 from io import open
 from unidecode import unidecode_expect_nonascii		# per sostituire caratteri non-ASCII
 
@@ -42,19 +43,18 @@ def readLines(filename):
     return [unicodeToAscii(line) for line in lines]
 
 # legge da un dataset dove ogni categoria si trova in un file (1 entry per riga)
-def dataFromFiles(target='TrainData', getData=True, getTestSet=True, getValidationSet=True):
+def dataFromFiles(target='TrainData/*.train.utf8', getData=True, getTestSet=True, getValidationSet=True):
 
-	global category_lines, all_categories, n_categories, n_instances
+	global all_categories, n_categories, n_instances
 	global data_X, data_Y, testX, testY, validationX, validationY
 
 	# Build the category_lines dictionary, a list of lines per category
-	category_lines = {}
 	all_categories = []
 
 	# ricerca nei file di train set
-	for index, filename in enumerate(findFiles(target+"/*.train.utf8")):
-		# ricava la categoria
-		category = filename.split('/')[-1].split('.')[0]
+	for index, filename in enumerate(findFiles(target)):
+		dirname = os.path.dirname(filename)	# path della cartella
+		category = os.path.basename(filename).split('.')[0]	# ricava la categoria dal nome del file
 		all_categories.append(category)
 
 		# ricava i relativi dati (se richiesto)
@@ -66,13 +66,13 @@ def dataFromFiles(target='TrainData', getData=True, getTestSet=True, getValidati
 
 		if getTestSet:
 			# recupera test set della categoria
-			lines = readLines(target+"/"+category+".test.utf8")
+			lines = readLines(dirname+"/"+category+".test.utf8")
 			testX += lines
 			testY += [index for i in lines]
 
 		if getValidationSet:
 			# recupera validation set della categoria
-			lines = readLines(target+"/"+category+".validation.utf8")
+			lines = readLines(dirname+"/"+category+".validation.utf8")
 			validationX += lines
 			validationY += [index for i in lines]
 
@@ -162,4 +162,3 @@ def getBatch(batch_size):
 	index = index2	# aggiorna indice per il batch successivo
 
 	return batch_X, batch_Y, Variable(lineToTensor(batch_X)), Variable(torch.LongTensor(batch_Y))
-	

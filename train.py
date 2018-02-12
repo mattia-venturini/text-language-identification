@@ -8,15 +8,13 @@ import time
 import math
 import argparse		# per i parametri da terminale
 import re		# regular expression
+import os.path
 
 # moduli del progetto
 import data
 from data import lineToTensor, findFiles
 import model
 from predict import predict
-
-#n_hidden = 128
-print_every = 100
 
 def categoryFromOutput(output):
 	try:
@@ -70,6 +68,21 @@ def timeSince(since):
     return '%dm %ds' % (m, s)
 
 
+def test(n_test=100):
+	guessed = 0
+	loss = 0
+	assert len(data.testX) == len(data.testY), "Strange error! testX and testY have different number of elements."
+
+	for i in range(n_test):
+		index = random.randint(0, len(data.testX))
+		lineTensor = Variable(lineToTensor([data.testX[index]]))
+		category_tensor = Variable(torch.LongTensor([data.testY[index]]))
+		output = rnn.forward(lineTensor)
+		guessed += countGuessed(output, [data.testY[index]])
+		loss += criterion(output, category_tensor)
+	return loss, guessed
+
+
 # ------------------------- MAIN ------------------------
 
 if __name__ == "__main__":
@@ -90,11 +103,13 @@ if __name__ == "__main__":
 	if args.dataset == 'dli32':
 		data.dataFromDLI32()
 	elif args.dataset == 'TrainData':
-		data.dataFromFiles('TrainData')
+		data.dataFromFiles('TrainData/*.train.utf8')
 	elif args.dataset == 'names':
-		data.dataFromFiles('data/names/')
+		data.dataFromFiles('data/names/*.txt')
 
 	start_epoch = 1
+	print_every = 100
+	save_every = 5000
 
 	# ripristina modello da file, se richiesto
 	if args.restart:
@@ -140,10 +155,13 @@ if __name__ == "__main__":
 	if args.model == 'LSTM':	# non so bene il perché di tutto ciò...
 		retain_graph = True
 
+	#rnn = torch.load('results/RNN_epoch_1_checkpoint_45000.pt')	# DA CANCELLARE
+
 	# training ---------------------------------------
 	for epoch in range(start_epoch, args.epochs + 1):
 
 		data.shuffle()
+		#data.index = 45000		# DA CANCELLARE
 
 		# mini-batch di elementi
 		for step in range(1, (num_batches+1)):
@@ -159,21 +177,10 @@ if __name__ == "__main__":
 				category_tensor = category_tensor.cuda()
 				line_tensor = line_tensor.cuda()
 
-			#line_tensor = line_tensor.view((1, len(line), -1))
-			#print line_tensor
-
 			output = rnn.forward(line_tensor)	# predizione tramite modello
-			#print output
-
-			guessed = countGuessed(output, category)
-
-			#output = output.view((args.batch_size, data.n_categories))
 			output = output.squeeze(1)
-			#print output
-			#print category_tensor
 
 			loss = criterion(output, category_tensor)
-
 			loss.backward(retain_graph=retain_graph)		# calcola gradienti (si sommano ai precedenti)
 
 			# clipping del gradiente, per evitare che "esploda"
@@ -182,7 +189,21 @@ if __name__ == "__main__":
 			optimizer.step()	# modifica pesi secondo i gradienti
 
 			if step % print_every == 0:
+				output = output.unsqueeze(1)
+				guessed = countGuessed(output, category)	# classificazioni corrette in questo batch
 				print('epoch: %d, step: %d/%d, loss: %f, guessed: %d / %d. (%s)' % (epoch, step, num_batches+1, loss, guessed, args.batch_size, timeSince(start)))
+
+			if step % save_every == 0:
+				# salva checkpoint del modello
+				filename = '%s_epoch_%d_checkpoint_%d.pt' % (args.model, epoch, step)
+				torch.save(rnn, "results/"+filename)
+				print "Model saved in file: results/%s" % (filename)
+
+				# testing sul checkpoint
+				loss, guessed = test(100)
+				print('testing ---> loss: %f, guessed: %d / %d' % (loss, guessed, 100))
+
+
 
 		# fine batch
 
@@ -195,17 +216,8 @@ if __name__ == "__main__":
 		print "Model saved in file: results/%s" % (filename)
 
 		# testing di fine epoca ---------------------
-		n_test = 50
-		guessed = 0
-		loss = 0
-		for i in range(n_test):
-			index = random.randint(0, len(data.testX))
-			lineTensor = Variable(lineToTensor([data.testX[index]]))
-			category_tensor = Variable(torch.LongTensor([data.testY[index]]))
-			output = rnn.forward(lineTensor)
-			guessed += countGuessed(output, [data.testY[index]])
-			loss += criterion(output, category_tensor)
-		print('testing ---> loss: %f, guessed: %d / %d' % (loss, guessed, n_test))
+		loss, guessed = test(100)
+		print('testing ---> loss: %f, guessed: %d / %d' % (loss, guessed, 100))
 
 	# end training -------------------------------------
 
