@@ -2,6 +2,7 @@
 
 import argparse
 import data
+import codecs
 
 # ------------------------- MAIN ------------------------------
 if __name__ == "__main__":
@@ -17,9 +18,9 @@ if __name__ == "__main__":
     base_name = file_name.split('.')[0]     # nome senza estensione
 
     # file in cui scrivere
-    f_train = open(base_name+".train.utf8", 'w')
-    f_test = open(base_name+".test.utf8", 'w')
-    f_validation = open(base_name+".validation.utf8", 'w')
+    f_train = codecs.open(base_name+".train.utf8", 'w', 'utf-8')
+    f_test = codecs.open(base_name+".test.utf8", 'w', 'utf-8')
+    f_validation = codecs.open(base_name+".validation.utf8", 'w', 'utf-8')
 
     # estrae dati
     data.dataFromFiles(args.data_file, getData=True, getTestSet=False, getValidationSet=False)

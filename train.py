@@ -16,6 +16,8 @@ from data import lineToTensor, findFiles
 import model
 from predict import predict
 
+# funzioni ---------------------------------------------------------------
+
 def categoryFromOutput(output):
 	try:
 		top_n, top_i = output.data.topk(1) # Tensor out of Variable with .data
@@ -29,7 +31,7 @@ def categoryFromOutput(output):
 
 def countGuessed(netOutput, categories):
 	guessed = 0
-	for i in range(len(category)):
+	for i in range(len(categories)):
 		outCategory, _ = categoryFromOutput(netOutput[i])
 		if outCategory == data.all_categories[categories[i]]:
 			guessed = guessed + 1
@@ -67,19 +69,19 @@ def timeSince(since):
     s -= m * 60
     return '%dm %ds' % (m, s)
 
-
-def test(n_test=100):
+# usa il Test Set per valutare il modello in base a loss totale e predizioni esatte
+def test(rnn, X=data.testX, Y=data.testY, n_test=1, loss_fn=nn.NLLLoss()):
 	guessed = 0
 	loss = 0
-	assert len(data.testX) == len(data.testY), "Strange error! testX and testY have different number of elements."
+	assert len(X) == len(Y), "Error! X and Y have different number of elements (X: %d, Y: %d)" % (len(X), len(Y))
 
 	for i in range(n_test):
-		index = random.randint(0, len(data.testX))
-		lineTensor = Variable(lineToTensor([data.testX[index]]))
-		category_tensor = Variable(torch.LongTensor([data.testY[index]]))
+		index = random.randint(0, len(X))
+		lineTensor = Variable(lineToTensor([X[index]]))
+		category_tensor = Variable(torch.LongTensor([Y[index]]))
 		output = rnn.forward(lineTensor)
-		guessed += countGuessed(output, [data.testY[index]])
-		loss += criterion(output, category_tensor)
+		guessed += countGuessed(output, [Y[index]])
+		loss += loss_fn(output, category_tensor)
 	return loss, guessed
 
 
@@ -155,13 +157,10 @@ if __name__ == "__main__":
 	if args.model == 'LSTM':	# non so bene il perché di tutto ciò...
 		retain_graph = True
 
-	#rnn = torch.load('results/RNN_epoch_1_checkpoint_45000.pt')	# DA CANCELLARE
-
 	# training ---------------------------------------
 	for epoch in range(start_epoch, args.epochs + 1):
 
 		data.shuffle()
-		#data.index = 45000		# DA CANCELLARE
 
 		# mini-batch di elementi
 		for step in range(1, (num_batches+1)):
@@ -189,7 +188,7 @@ if __name__ == "__main__":
 			optimizer.step()	# modifica pesi secondo i gradienti
 
 			if step % print_every == 0:
-				output = output.unsqueeze(1)
+				#output = output.unsqueeze(1)
 				guessed = countGuessed(output, category)	# classificazioni corrette in questo batch
 				print('epoch: %d, step: %d/%d, loss: %f, guessed: %d / %d. (%s)' % (epoch, step, num_batches+1, loss, guessed, args.batch_size, timeSince(start)))
 
@@ -200,10 +199,8 @@ if __name__ == "__main__":
 				print "Model saved in file: results/%s" % (filename)
 
 				# testing sul checkpoint
-				loss, guessed = test(100)
+				loss, guessed = test(rnn, n_test=100, loss_fn=criterion)
 				print('testing ---> loss: %f, guessed: %d / %d' % (loss, guessed, 100))
-
-
 
 		# fine batch
 
@@ -216,13 +213,7 @@ if __name__ == "__main__":
 		print "Model saved in file: results/%s" % (filename)
 
 		# testing di fine epoca ---------------------
-		loss, guessed = test(100)
+		loss, guessed = test(rnn, n_test=100, loss_fn=criterion)
 		print('testing ---> loss: %f, guessed: %d / %d' % (loss, guessed, 100))
 
 	# end training -------------------------------------
-
-	# testing
-	"""print predict(rnn, "Typical approaches are based on statistics of the most frequent n-grams in each language", 2, cuda=args.cuda)
-	print predict(rnn, "Please see the solution details below and run the code yourself.", 2, cuda=args.cuda)
-	print predict(rnn, "i file contengono una o più frasi separate da una riga vuota;", 2, cuda=args.cuda)
-	print predict(rnn, "Hola, amigo, como estas?", 2, cuda=args.cuda);"""

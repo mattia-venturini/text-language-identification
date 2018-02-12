@@ -31,6 +31,10 @@ def findFiles(path): return glob.glob(path)
 
 # Turn a Unicode string to plain ASCII, thanks to http://stackoverflow.com/a/518232/2809427
 def unicodeToAscii(s):
+	#s = s.decode('utf-8')		# da stringa a utf-8
+	s = unidecode_expect_nonascii(s)	# da utf-8 sostituisce caratteri "strani" in stringa ASCII
+	s = unicode(s)		# ad unicode
+
 	return ''.join(
 		c for c in unicodedata.normalize('NFD', s)
 		if unicodedata.category(c) != 'Mn'
@@ -48,8 +52,14 @@ def dataFromFiles(target='TrainData/*.train.utf8', getData=True, getTestSet=True
 	global all_categories, n_categories, n_instances
 	global data_X, data_Y, testX, testY, validationX, validationY
 
-	# Build the category_lines dictionary, a list of lines per category
+	# azzera il dataset
 	all_categories = []
+	data_X = []
+	data_Y = []
+	testX = []
+	testY = []
+	validationX = []
+	validationY = []
 
 	# ricerca nei file di train set
 	for index, filename in enumerate(findFiles(target)):
@@ -119,10 +129,6 @@ def lineToTensor(lines):
 	# The 1st axis is the sequence itself, the 2nd indexes instances in the mini-batch, the 3rd indexes elements of the character.
 
 	for i, line in enumerate(lines):
-		line = line.decode('utf-8')		# da stringa a utf-8
-		line = unidecode_expect_nonascii(line)	# da utf-8 sostituisce caratteri "strani" in stringa ASCII
-		line = unicode(line)		# ad unicode
-
 		line = unicodeToAscii(line)
 
 		for j, letter in enumerate(line):

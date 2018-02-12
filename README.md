@@ -8,11 +8,12 @@ Natural Language Processing course.
 
 ### Summary ###
 
-* _train.py_ - Trains a Recurrent Neural Network to Classify a short text in his language.
-* _data.py_ - Loads dataset from text files.
-* _model.py_ - Implements different kind of RNN.
-* _predict.py_ - Tests a trained model on user input.
-* _sets.py_ - Subdivide a dataset (from a text file) in train, test and validation set.
+* __train.py__ - Trains a Recurrent Neural Network to Classify a short text in his language.
+* __data.py__ - Loads dataset from text files.
+* __model.py__ - Implements different kind of RNN.
+* __predict.py__ - Tests a trained model on user input.
+* __sets.py__ - Subdivide a dataset (from a text file) in train, test and validation set.
+* __validation.py__ - Test a model on the validation set and print results.
 
 * Version 0.1
 * [Learn Markdown](https://bitbucket.org/tutorials/markdowndemo)
