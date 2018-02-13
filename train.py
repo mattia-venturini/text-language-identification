@@ -4,8 +4,8 @@ import torch
 import torch.nn as nn
 from torch.autograd import Variable
 import random
+import numpy
 import time
-import math
 import argparse		# per i parametri da terminale
 import re		# regular expression
 import os.path
@@ -65,18 +65,21 @@ def randomTrainingPair(batch_size=1):
 def timeSince(since):
     now = time.time()
     s = now - since
-    m = math.floor(s / 60)
+    m = s // 60		# divisione intera (non-default in python 3)
     s -= m * 60
     return '%dm %ds' % (m, s)
 
+
 # usa il Test Set per valutare il modello in base a loss totale e predizioni esatte
-def test(rnn, X=data.testX, Y=data.testY, n_test=1, loss_fn=nn.NLLLoss()):
+def test(rnn, n_test=1, loss_fn=nn.NLLLoss()):
+	X = data.testX
+	Y = data.testY
 	guessed = 0
 	loss = 0
 	assert len(X) == len(Y), "Error! X and Y have different number of elements (X: %d, Y: %d)" % (len(X), len(Y))
 
 	for i in range(n_test):
-		index = random.randint(0, len(X))
+		index = random.randint(0, len(X)-1)
 		lineTensor = Variable(lineToTensor([X[index]]))
 		category_tensor = Variable(torch.LongTensor([Y[index]]))
 		output = rnn.forward(lineTensor)
@@ -102,12 +105,12 @@ if __name__ == "__main__":
 	args = parser.parse_args()
 
 	# carica dataset
-	if args.dataset == 'dli32':
+	"""if args.dataset == 'dli32':
 		data.dataFromDLI32()
 	elif args.dataset == 'TrainData':
 		data.dataFromFiles('TrainData/*.train.utf8')
 	elif args.dataset == 'names':
-		data.dataFromFiles('data/names/*.txt')
+		data.dataFromFiles('data/names/*.txt')"""
 
 	start_epoch = 1
 	print_every = 100
@@ -117,8 +120,10 @@ if __name__ == "__main__":
 	if args.restart:
 		files = findFiles("results/"+args.model+"_epoch_*.pt")
 		if len(files) > 0:
-			files.sort()
-			filename = files[-1]
+			mtimes = [os.path.getmtime(f) for f in files]	# ricava data di modifica dei file
+			max_idx = numpy.argmax(mtimes)	# prende quella maggiore = la più recente
+			filename = files[max_idx]
+
 			rnn = torch.load(filename)
 
 			# recupera l'epoca a cui si era rimasti
@@ -177,7 +182,7 @@ if __name__ == "__main__":
 				line_tensor = line_tensor.cuda()
 
 			output = rnn.forward(line_tensor)	# predizione tramite modello
-			output = output.squeeze(1)
+			#output = output.squeeze(1)
 
 			loss = criterion(output, category_tensor)
 			loss.backward(retain_graph=retain_graph)		# calcola gradienti (si sommano ai precedenti)
