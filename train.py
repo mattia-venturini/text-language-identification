@@ -105,12 +105,12 @@ if __name__ == "__main__":
 	args = parser.parse_args()
 
 	# carica dataset
-	"""if args.dataset == 'dli32':
+	if args.dataset == 'dli32':
 		data.dataFromDLI32()
 	elif args.dataset == 'TrainData':
 		data.dataFromFiles('TrainData/*.train.utf8')
 	elif args.dataset == 'names':
-		data.dataFromFiles('data/names/*.txt')"""
+		data.dataFromFiles('data/names/*.txt')
 
 	start_epoch = 1
 	print_every = 100
