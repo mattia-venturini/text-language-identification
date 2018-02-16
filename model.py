@@ -1,9 +1,16 @@
+# -*- coding: utf-8 -*-
+
+# MODEL.PY
+# Loads dataset from text files.
+# Author: Mattia Venturini
+
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from torch.autograd import Variable
 
 # RNN (Recurrent Neural Network)
+# Based on Sean Robertson's work: https://github.com/spro/practical-pytorch/tree/master/char-rnn-classification
 class RNN(nn.Module):
 
     def __init__(self, input_size, hidden_size, output_size, cuda=False):
@@ -11,9 +18,6 @@ class RNN(nn.Module):
 
         self.hidden_size = hidden_size
 
-        """self.layer1 = nn.Sequential(
-        	nn.Linear(input_size + hidden_size, hidden_size),
-        	nn.LeakyReLU(0.2))"""
         self.i2h = nn.Linear(input_size + hidden_size, hidden_size)
         self.i2o = nn.Linear(input_size + hidden_size, output_size)
         self.softmax = nn.LogSoftmax(dim=-1)
@@ -53,8 +57,7 @@ class RNN(nn.Module):
 
 
 # LSTM (Long-Short Term Memory)
-# utilizza una LSTM di pytorch e la estende con qualche funzione utile
-# (tratto da http://pytorch.org/tutorials/beginner/nlp/sequence_models_tutorial.html)
+# from http://pytorch.org/tutorials/beginner/nlp/sequence_models_tutorial.html (with small changes)
 class LSTM(nn.Module):
 
 	def __init__(self, input_size, hidden_size, output_size, cuda=False):
@@ -100,6 +103,7 @@ class LSTM(nn.Module):
 
 
 # GRU (Gated Recurrent Unit)
+# Basically is the same as LTSM above
 class GRU(nn.Module):
 
 	def __init__(self, input_size, hidden_size, output_size, cuda=False):

@@ -1,5 +1,9 @@
 # -*- coding: utf-8 -*-
 
+# SETS.PY
+# Subdivide a dataset (from a text file) in train, test and validation set, and save them in different files.
+# Author: Mattia Venturini
+
 import argparse
 import data
 import codecs

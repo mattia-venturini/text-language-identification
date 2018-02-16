@@ -1,5 +1,12 @@
 # -*- coding: utf-8 -*-
 
+# TRAIN.PY
+# Trains a Recurrent Neural Network to Classify a short text in his language.
+# Author: Mattia Venturini
+#
+# Based on Sean Robertson's work:
+# https://github.com/spro/practical-pytorch/tree/master/char-rnn-classification
+
 import torch
 import torch.nn as nn
 from torch.autograd import Variable
@@ -41,6 +48,7 @@ def countGuessed(netOutput, categories):
 def randomChoice(l):
     return l[random.randint(0, len(l) - 1)]
 
+"""
 # crea due tensori input/output per la RNN
 def randomTrainingPair(batch_size=1):
 
@@ -59,7 +67,7 @@ def randomTrainingPair(batch_size=1):
 	category_tensor = Variable(torch.LongTensor(categories))
 	line_tensor = Variable(lineToTensor(lines))
 
-	return lines, categories, line_tensor, category_tensor
+	return lines, categories, line_tensor, category_tensor"""
 
 
 def timeSince(since):
@@ -95,26 +103,26 @@ if __name__ == "__main__":
 	# parametri da terminale
 	parser = argparse.ArgumentParser(description='Language modelling at character level with a RNN (PyTorch)')
 	parser.add_argument('--model', default='RNN', help='modello da usare: RNN | LSTM', choices=['RNN','LSTM','GRU'])
-	parser.add_argument('--dataset', metavar='dataset', default='names', help='Dataset da usare: names | dli32', choices=['names', 'dli32','TrainData'])
+	parser.add_argument('--dataset', metavar='dataset', default='TrainData', help='Dataset da usare: names | dli32', choices=['names','TrainData'])
 	parser.add_argument('--epochs', type=int, default=10, metavar='epochs', help='number of epochs to train (default: 1000)')
 	parser.add_argument('--lr', type=float, default=0.0001, metavar='lr', help='learning rate (default: 0.005)')
-	parser.add_argument('--batch-size', type=int, default=64, metavar='batch-size', help='size of mini-batch')
+	parser.add_argument('--batch-size', type=int, default=1, metavar='batch-size', help='size of mini-batch')
 	parser.add_argument('--n-hidden', type=int, default=128, metavar='n_hidden', help='dimension of the hidden state')
 	parser.add_argument('--cuda', action='store_true', default=False, help='enables CUDA training')
 	parser.add_argument('--restart', action='store_true', default=False, help='restart training from an existing model')
 	args = parser.parse_args()
 
-	# carica dataset
-	if args.dataset == 'dli32':
-		data.dataFromDLI32()
-	elif args.dataset == 'TrainData':
+	start_epoch = 1
+	start_step = 1
+	print_every = 100
+	save_every = 5000
+
+	# recupera dataset
+	if args.dataset == 'TrainData':
 		data.dataFromFiles('TrainData/*.train.utf8')
 	elif args.dataset == 'names':
 		data.dataFromFiles('data/names/*.txt')
 
-	start_epoch = 1
-	print_every = 100
-	save_every = 5000
 
 	# ripristina modello da file, se richiesto
 	if args.restart:
@@ -127,8 +135,15 @@ if __name__ == "__main__":
 			rnn = torch.load(filename)
 
 			# recupera l'epoca a cui si era rimasti
-			num = re.split('_|\.', filename)[-2]
-			start_epoch = int(num)+1
+			tokens = re.split('_|\.', filename)
+			if tokens[-3] == 'checkpoint':
+				start_epoch = int(tokens[-4])
+				start_step = int(tokens[-2]) + 1
+			else:
+				start_epoch = int(tokens[-2]) + 1
+				start_step = 1
+			#num = re.split('_|\.', filename)[-2]
+			#start_epoch = int(num)+1
 
 			print "Modello recuperato dal file "+filename
 		else:
@@ -168,7 +183,7 @@ if __name__ == "__main__":
 		data.shuffle()
 
 		# mini-batch di elementi
-		for step in range(1, (num_batches+1)):
+		for step in range(start_step, (num_batches+1)):
 
 			optimizer.zero_grad()	# azzera i gradienti
 			guessed = 0

@@ -1,5 +1,12 @@
 # -*- coding: utf-8 -*-
 
+# DATA.PY
+# Loads dataset from text files.
+# Author: Mattia Venturini
+#
+# Based on Sean Robertson's work:
+# https://github.com/spro/practical-pytorch/tree/master/char-rnn-classification
+
 import torch
 from torch.autograd import Variable
 import glob
@@ -32,6 +39,7 @@ def findFiles(path): return glob.glob(path)
 # Turn a Unicode string to plain ASCII, thanks to http://stackoverflow.com/a/518232/2809427
 def unicodeToAscii(s):
 	#s = s.decode('utf-8')		# da stringa a utf-8
+	s = unicode(s, 'utf-8')	# da stringa a utf-8
 	s = unidecode_expect_nonascii(s)	# da utf-8 sostituisce caratteri "strani" in stringa ASCII
 	s = unicode(s)		# ad unicode
 
@@ -89,7 +97,7 @@ def dataFromFiles(target='TrainData/*.train.utf8', getData=True, getTestSet=True
 	n_instances = len(data_X)
 	n_categories = len(all_categories)
 
-
+"""
 # recupera i dati dalla cartella DLI32
 # legge da un dataset dove ogni categoria si trova in una cartella (1 entry per file)
 def dataFromDLI32():
@@ -114,7 +122,7 @@ def dataFromDLI32():
 			category_lines[category].append(content)
 
 	n_categories = len(all_categories)
-
+"""
 
 # Find letter index from all_letters, e.g. "a" = 0
 def letterToIndex(letter):
@@ -124,13 +132,12 @@ def letterToIndex(letter):
 # or an array of one-hot letter vectors
 def lineToTensor(lines):
 
+	lines = [unicodeToAscii(line) for line in lines]	# converto tutto in ASCII
 	lens = [len(line) for line in lines]
 	tensor = torch.zeros(max(lens), len(lines), n_letters)
 	# The 1st axis is the sequence itself, the 2nd indexes instances in the mini-batch, the 3rd indexes elements of the character.
 
 	for i, line in enumerate(lines):
-		line = unicodeToAscii(line)
-
 		for j, letter in enumerate(line):
 			tensor[j][i][letterToIndex(letter)] = 1
 	return tensor
