@@ -51,6 +51,7 @@ if __name__ == "__main__":
 
     # stampa la matrice di confusione
     print("Confusion Matrix:")
+    print("\t"),
     for j in data.all_categories:
         print(j[:6]+"\t"),
     print('\n')

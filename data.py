@@ -39,7 +39,8 @@ def findFiles(path): return glob.glob(path)
 # Turn a Unicode string to plain ASCII, thanks to http://stackoverflow.com/a/518232/2809427
 def unicodeToAscii(s):
 	#s = s.decode('utf-8')		# da stringa a utf-8
-	s = unicode(s, 'utf-8')	# da stringa a utf-8
+	if type(s) == str:
+		s = unicode(s, 'utf-8')	# da stringa a utf-8
 	s = unidecode_expect_nonascii(s)	# da utf-8 sostituisce caratteri "strani" in stringa ASCII
 	s = unicode(s)		# ad unicode
 
@@ -82,13 +83,13 @@ def dataFromFiles(target='TrainData/*.train.utf8', getData=True, getTestSet=True
 			data_X += lines
 			data_Y += [index for i in lines]
 
-		if getTestSet:
+		if getTestSet and os.path.isfile(dirname+"/"+category+".test.utf8"):
 			# recupera test set della categoria
 			lines = readLines(dirname+"/"+category+".test.utf8")
 			testX += lines
 			testY += [index for i in lines]
 
-		if getValidationSet:
+		if getValidationSet and os.path.isfile(dirname+"/"+category+".test.utf8"):
 			# recupera validation set della categoria
 			lines = readLines(dirname+"/"+category+".validation.utf8")
 			validationX += lines
@@ -97,32 +98,6 @@ def dataFromFiles(target='TrainData/*.train.utf8', getData=True, getTestSet=True
 	n_instances = len(data_X)
 	n_categories = len(all_categories)
 
-"""
-# recupera i dati dalla cartella DLI32
-# legge da un dataset dove ogni categoria si trova in una cartella (1 entry per file)
-def dataFromDLI32():
-
-	global category_lines
-	global all_categories
-	global n_categories
-
-	# resetta i dati
-	category_lines = {}
-	all_categories = []
-
-	#for folder in findFiles('DLI32-2/*'):
-	for folder in findFiles('TrainData/*'):
-		category = folder.split('/')[-1]	# categoria = nome della cartella
-		all_categories.append(category)
-		category_lines[category] = []
-
-		# dati da ogni file txt
-		for filename in findFiles(folder+"/*.txt"):
-			content = open(filename, 'r').read()
-			category_lines[category].append(content)
-
-	n_categories = len(all_categories)
-"""
 
 # Find letter index from all_letters, e.g. "a" = 0
 def letterToIndex(letter):

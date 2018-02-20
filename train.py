@@ -25,6 +25,7 @@ from predict import predict
 
 # funzioni ---------------------------------------------------------------
 
+# dal tensore di output restituisce la classe con probabilità più alta
 def categoryFromOutput(output):
 	try:
 		top_n, top_i = output.data.topk(1) # Tensor out of Variable with .data
@@ -36,6 +37,7 @@ def categoryFromOutput(output):
 		print "all_categories:", len(data.all_categories)
 		raise error
 
+# calcola quante classi sono state indovinate in un batch
 def countGuessed(netOutput, categories):
 	guessed = 0
 	for i in range(len(categories)):
@@ -45,31 +47,7 @@ def countGuessed(netOutput, categories):
 	return guessed
 
 
-def randomChoice(l):
-    return l[random.randint(0, len(l) - 1)]
-
-"""
-# crea due tensori input/output per la RNN
-def randomTrainingPair(batch_size=1):
-
-	lines = []
-	categories = []
-
-	for i in range(batch_size):
-		category = randomChoice(data.all_categories)
-		category_index = data.all_categories.index(category)
-		#category = random.randint(0, data.n_categories)
-		line = randomChoice(data.category_lines[category])
-
-		lines.append(line)
-		categories.append(category_index)
-
-	category_tensor = Variable(torch.LongTensor(categories))
-	line_tensor = Variable(lineToTensor(lines))
-
-	return lines, categories, line_tensor, category_tensor"""
-
-
+# tempo passato da un certo momento (in stringa)
 def timeSince(since):
     now = time.time()
     s = now - since
@@ -86,6 +64,9 @@ def test(rnn, n_test=1, loss_fn=nn.NLLLoss()):
 	loss = 0
 	assert len(X) == len(Y), "Error! X and Y have different number of elements (X: %d, Y: %d)" % (len(X), len(Y))
 
+	if len(X) == 0:	# test set vuoto
+		return loss, guessed	# no testing
+
 	for i in range(n_test):
 		index = random.randint(0, len(X)-1)
 		lineTensor = Variable(lineToTensor([X[index]]))
@@ -96,18 +77,18 @@ def test(rnn, n_test=1, loss_fn=nn.NLLLoss()):
 	return loss, guessed
 
 
-# ------------------------- MAIN ------------------------
+# ----------------------------- MAIN -------------------------------
 
 if __name__ == "__main__":
 
 	# parametri da terminale
 	parser = argparse.ArgumentParser(description='Language modelling at character level with a RNN (PyTorch)')
-	parser.add_argument('--model', default='RNN', help='modello da usare: RNN | LSTM', choices=['RNN','LSTM','GRU'])
-	parser.add_argument('--dataset', metavar='dataset', default='TrainData', help='Dataset da usare: names | dli32', choices=['names','TrainData'])
+	parser.add_argument('--model', default='RNN', help='modello da usare: RNN | LSTM | GRU', choices=['RNN','LSTM','GRU'])
+	parser.add_argument('--dataset', metavar='dataset', default='TrainData', help='Dataset da usare: names | TrainData', choices=['names','TrainData'])
 	parser.add_argument('--epochs', type=int, default=10, metavar='epochs', help='number of epochs to train (default: 1000)')
-	parser.add_argument('--lr', type=float, default=0.0001, metavar='lr', help='learning rate (default: 0.005)')
-	parser.add_argument('--batch-size', type=int, default=1, metavar='batch-size', help='size of mini-batch')
-	parser.add_argument('--n-hidden', type=int, default=128, metavar='n_hidden', help='dimension of the hidden state')
+	parser.add_argument('--lr', type=float, default=0.0001, metavar='lr', help='learning rate (default: 0.0001)')
+	parser.add_argument('--batch-size', type=int, default=1, metavar='batch-size', help='size of mini-batch (default: 1)')
+	parser.add_argument('--n-hidden', type=int, default=128, metavar='n_hidden', help='dimension of the hidden state (default: 128)')
 	parser.add_argument('--cuda', action='store_true', default=False, help='enables CUDA training')
 	parser.add_argument('--restart', action='store_true', default=False, help='restart training from an existing model')
 	args = parser.parse_args()
@@ -210,7 +191,7 @@ if __name__ == "__main__":
 			if step % print_every == 0:
 				#output = output.unsqueeze(1)
 				guessed = countGuessed(output, category)	# classificazioni corrette in questo batch
-				print('epoch: %d, step: %d/%d, loss: %f, guessed: %d / %d. (%s)' % (epoch, step, num_batches+1, loss, guessed, args.batch_size, timeSince(start)))
+				print('epoch: %d, step: %d/%d, loss: %f, guessed: %d / %d. (%s)' % (epoch, step, num_batches, loss, guessed, args.batch_size, timeSince(start)))
 
 			if step % save_every == 0:
 				# salva checkpoint del modello
